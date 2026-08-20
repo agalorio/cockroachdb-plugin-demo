@@ -1,9 +1,6 @@
 # Local env file (copy from .env.example; do not commit secrets or machine-specific overrides)
 .env
 
-# Plugin JARs copied out of the Netprobe image
-plugins/
-
 # Optional local scratch
 *.log
 .DS_Store

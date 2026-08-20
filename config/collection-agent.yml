@@ -5,11 +5,12 @@
 # https://docs.itrsgroup.com/docs/geneos/collection/cockroachdb/current/user-guide/cockroachdb/index.html
 #
 # This file:
-# 1. Loads plugin JARs from /app/plugins (copied out of the Netprobe image).
+# 1. Loads plugin JARs from /app/plugins (baked into the Collection Agent image).
 # 2. Collects CockroachDB HTTP + JDBC metrics (insecure: no tls block, no passwords).
 # 3. Sends datapoints to the Netprobe TCP reporter on port 9137.
 
 # Directory that contains collector/processor JARs, including CockroachDbCollector.
+# The 6.6.3 image ships plugins aligned with Netprobe 7.11.1 Standard.
 pluginDirectory: ${env:CA_PLUGIN_DIR}
 
 # Optional health endpoint for docker logs / debugging (not used by Active Console).

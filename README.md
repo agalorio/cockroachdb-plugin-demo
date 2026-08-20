@@ -111,39 +111,7 @@ curl -s "http://localhost:${COCKROACH_HTTP_PORT}/_admin/v1/cluster"
 
 Optional: open the CockroachDB DB Console at [http://localhost:8080](http://localhost:8080).
 
-## 5. Copy Collection Agent plugins from the Netprobe image
-
-The CockroachDB collector JAR is packaged with Netprobe under `collection_agent/plugins`. The standalone Collection Agent image needs those JARs mounted in.
-
-```bash
-# Create a local folder for the JARs (gitignored).
-mkdir -p plugins
-
-# Create a stopped container so we can copy files out of the image.
-docker create --name netprobe-plugins-src "${NETPROBE_IMAGE}"
-
-# Copy plugin JARs. Path used by Geneos Netprobe containers: /netprobe/collection_agent/plugins
-docker cp netprobe-plugins-src:/netprobe/collection_agent/plugins/. ./plugins/
-
-# Remove the temporary container. The plugins/ folder on the host is what you keep.
-docker rm netprobe-plugins-src
-```
-
-Confirm you have JARs:
-
-```bash
-ls plugins
-```
-
-If `docker cp` fails with "no such file", list the image and look for `collection_agent/plugins`:
-
-```bash
-docker run --rm --entrypoint find "${NETPROBE_IMAGE}" / -type d -name plugins
-```
-
-Then `docker create` again and `docker cp` from the path `find` printed.
-
-## 6. Start Gateway (insecure, demo mode)
+## 5. Start Gateway (insecure, demo mode)
 
 Demo mode needs the Gateway name **Demo Gateway** and the `-demo` flag. Demo mode allows at most two Netprobes and you cannot rename the Gateway. See [Gateway licensing - demo mode](https://docs.itrsgroup.com/docs/geneos/7.11.0/administration/gateway_licensing/index.html).
 
@@ -174,7 +142,7 @@ docker logs "${GATEWAY_CONTAINER}"
 
 You should see the Gateway start in demo mode and listen on 7039.
 
-## 7. Start Netprobe (insecure, self-announcing)
+## 6. Start Netprobe (insecure, self-announcing)
 
 ```bash
 docker run -d \
@@ -204,9 +172,11 @@ docker logs "${NETPROBE_CONTAINER}"
 
 Look for a successful connection to Gateway `gateway:7039`.
 
-## 8. Start Collection Agent (insecure, unmanaged)
+## 7. Start Collection Agent (insecure, unmanaged)
 
 The Collection Agent is a **separate container**. It is not started by the Netprobe. Gateway collection agent parameters are therefore **unmanaged**.
+
+The Collection Agent image already includes the plugins that ship with the matching Netprobe Standard package (this lab: CA `6.6.3` with Netprobe `7.11.1`). Point `CA_PLUGIN_DIR` at `/app/plugins` inside the image. Do not copy JARs from Netprobe.
 
 ```bash
 docker run -d \
@@ -214,7 +184,6 @@ docker run -d \
   --hostname "${COLLECTION_AGENT_CONTAINER}" \
   --network "${NETWORK_NAME}" \
   -v "$(pwd)/config/collection-agent.yml:/app/config/config.yaml:ro" \
-  -v "$(pwd)/plugins:/app/plugins:ro" \
   -e CA_PLUGIN_DIR=/app/plugins \
   -e HEALTH_CHECK_PORT="${CA_HEALTH_PORT}" \
   -e TCP_REPORTER_PORT="${TCP_REPORTER_PORT}" \
@@ -226,8 +195,7 @@ docker run -d \
 What each part does:
 
 - `-v ...collection-agent.yml` mounts [config/collection-agent.yml](config/collection-agent.yml) as the Collection Agent YAML.
-- `-v .../plugins` mounts the JARs copied in step 5.
-- `CA_PLUGIN_DIR` is substituted into `pluginDirectory` in the YAML.
+- `CA_PLUGIN_DIR=/app/plugins` uses the plugin JARs already in the Collection Agent image (`CockroachDbCollector`, `GeneosProcessor`, and the rest of the Standard set).
 - `TCP_REPORTER_PORT` must match Gateway `reporterPort` (9137).
 - `COCKROACH_HOST` is `cockroach` so HTTP and JDBC URLs resolve on the Docker network.
 - The command runs the Collection Agent JAR with that YAML (same layout as ITRS Collection Agent images).
@@ -248,7 +216,7 @@ docker logs "${COLLECTION_AGENT_CONTAINER}"
 
 You want a successful HTTP read of `/_admin/v1/cluster` and a TCP connection to `netprobe:9137`. There must be **no** `tls` errors (this lab omits the `tls` block for an insecure cluster).
 
-## 9. Connect Active Console to the Gateway
+## 8. Connect Active Console to the Gateway
 
 1. Install Active Console 7.11+ from ITRS Resources > Downloads > Active Console 2. Unzip and start it. See [Download and setup](https://docs.itrsgroup.com/docs/geneos/7.11.0/visualization/active-console/download-and-setup/index.html).
 2. Go to **Active Console > Workspace settings > Connections**.
@@ -266,7 +234,7 @@ You should then see:
 
 Double-click the Gateway to open Gateway Setup Editor if you want to inspect [config/gateway.setup.xml](config/gateway.setup.xml).
 
-## 10. Metrics you should see
+## 9. Metrics you should see
 
 Each collection cycle publishes HTTP node/store metrics and SQL side-channel metrics. Full list: [Metrics collected](https://docs.itrsgroup.com/docs/geneos/collection/cockroachdb/current/user-guide/cockroachdb/index.html).
 
@@ -283,7 +251,7 @@ SQL side-channel:
 
 This lab does not configure custom JDBC queries. That is a separate JDBC Collection Agent plugin.
 
-## 11. Useful docker commands (no scripts)
+## 10. Useful docker commands (no scripts)
 
 List the four containers:
 
@@ -300,9 +268,9 @@ docker logs -f "${COLLECTION_AGENT_CONTAINER}"
 docker logs -f "${COCKROACH_CONTAINER}"
 ```
 
-## 12. Tear down
+## 11. Tear down
 
-Stop and remove the lab containers, then the network. Plugin JARs in `./plugins` are left on disk so the next start can skip step 5.
+Stop and remove the lab containers, then the network.
 
 ```bash
 docker stop "${COLLECTION_AGENT_CONTAINER}" "${NETPROBE_CONTAINER}" "${GATEWAY_CONTAINER}" "${COCKROACH_CONTAINER}"
@@ -310,18 +278,12 @@ docker rm "${COLLECTION_AGENT_CONTAINER}" "${NETPROBE_CONTAINER}" "${GATEWAY_CON
 docker network rm "${NETWORK_NAME}"
 ```
 
-To also delete copied plugins:
-
-```bash
-rm -rf plugins
-```
-
 ## Troubleshooting
 
 | Symptom | What to check |
 | --- | --- |
 | `docker pull` / `docker run` unauthorized for `docker.itrsgroup.com` | Run `docker login docker.itrsgroup.com` with ITRS website credentials. |
-| Collection Agent exits immediately | `curl` the cluster UUID (step 4). Confirm `./plugins` has JARs. Read `docker logs collection-agent`. |
+| Collection Agent exits immediately | `curl` the cluster UUID (step 4). Keep the CA image tag in line with Netprobe 7.11.1 so `/app/plugins` includes CockroachDB. Read `docker logs collection-agent`. |
 | No dynamic entities in Active Console | Confirm SAN in Netprobe logs, unmanaged reporter `9137`, and built-in mapping **CockroachDB V1** on Gateway 7.11+. |
 | Active Console cannot connect | Gateway published `7039`, Gateway name is still `Demo Gateway`, and you are using the insecure port (not 7038). |
 | `port is already allocated` | Another process is using that host port. Change the left-hand side of `-p` in `.env` / the `docker run` (keep the container-side ports). |
