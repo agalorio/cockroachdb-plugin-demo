@@ -1,0 +1,69 @@
+# Collection Agent configuration for the insecure CockroachDB lab.
+# Mounted into the Collection Agent container as /app/config/config.yaml
+#
+# Official collector reference:
+# https://docs.itrsgroup.com/docs/geneos/collection/cockroachdb/current/user-guide/cockroachdb/index.html
+#
+# This file:
+# 1. Loads plugin JARs from /app/plugins (copied out of the Netprobe image).
+# 2. Collects CockroachDB HTTP + JDBC metrics (insecure: no tls block, no passwords).
+# 3. Sends datapoints to the Netprobe TCP reporter on port 9137.
+
+# Directory that contains collector/processor JARs, including CockroachDbCollector.
+pluginDirectory: ${env:CA_PLUGIN_DIR}
+
+# Optional health endpoint for docker logs / debugging (not used by Active Console).
+monitoring:
+  healthProbe:
+    listenPort: ${env:HEALTH_CHECK_PORT}
+  selfMetrics:
+    dimensions:
+      app_name: collection-agent
+
+# TCP reporter: Collection Agent -> Netprobe.
+# hostname is the Netprobe container DNS name on the geneos-lab network.
+# port must match reporterPort in gateway.setup.xml (9137).
+reporters:
+  - type: tcp
+    name: tcp
+    hostname: netprobe
+    port: ${env:TCP_REPORTER_PORT}
+
+# CockroachDB collector (insecure cluster).
+# Omit the entire tls block. Omit http username/password. JDBC defaults to user root.
+collectors:
+  - name: cockroachdb
+    type: plugin
+    className: CockroachDbCollector
+
+    # How often to poll HTTP + SQL, in milliseconds.
+    collectionInterval: 30000
+
+    # Base URL of CockroachDB Status / Admin JSON API.
+    # The collector appends /api/v2/nodes/ (with /_status/nodes fallback) and /_admin/v1/cluster.
+    http:
+      endpointUrl: http://${env:COCKROACH_HOST}:8080
+
+    # JDBC side-channel against crdb_internal.cluster_sessions and crdb_internal.jobs.
+    db:
+      connectionConfig:
+        url: jdbc:postgresql://${env:COCKROACH_HOST}:26257/defaultdb
+
+# Send metrics, attributes, and events to the tcp reporter.
+# GeneosProcessor shapes datapoints so the CockroachDB V1 mapping can build entities.
+workflow:
+  storeDirectory: .
+  metrics:
+    reporter: tcp
+    processors:
+      - type: plugin
+        name: geneos-workflow
+        className: GeneosProcessor
+  attributes:
+    reporter: tcp
+  events:
+    reporter: tcp
+  logs:
+    reporter: tcp
+  traces:
+    enabled: false

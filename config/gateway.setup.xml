@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+  Gateway setup for the insecure CockroachDB lab.
+
+  This file is mounted into the Gateway container at:
+    /gateway/persist/setup/gateway.setup.xml
+
+  What this setup does:
+  - Names the Gateway "Demo Gateway" (required for -demo mode)
+  - Listens insecurely on 7039 (Active Console and SAN Netprobe connect here)
+  - Allows Self-Announcing Netprobes
+  - Maps Collection Agent CockroachDB datapoints with the built-in CockroachDB V1 mapping
+  - Tells the Netprobe to listen for an unmanaged Collection Agent on TCP 9137
+-->
+<gateway compatibility="1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://schema.itrsgroup.com/RA7.11.0-260715/gateway.xsd">
+
+	<!--
+	  Dynamic Entities: turn Collection Agent datapoints into Geneos managed entities.
+	  See: https://docs.itrsgroup.com/docs/geneos/7.11.0/processing/configuration/dynamic_entities/index.html
+	-->
+	<dynamicEntities>
+
+		<!-- Built-in mapping shipped with Gateway 7.11+. Do not replace with a custom mapping for this lab. -->
+		<simpleMappings>
+			<mapping name="cockroachdb-node">
+				<builtIn>
+					<name>CockroachDB V1</name>
+				</builtIn>
+			</mapping>
+		</simpleMappings>
+
+		<!--
+		  Mapping type attached to the Self-Announcing Netprobe by name.
+		  The Netprobe setup file must use the same mappingType name: cockroachdb-mapping-type
+		-->
+		<mappingTypes>
+			<mappingType name="cockroachdb-mapping-type">
+				<mappings>
+					<mapping ref="cockroachdb-node"></mapping>
+				</mappings>
+			</mappingType>
+		</mappingTypes>
+
+		<!--
+		  Unmanaged Collection Agent: the CA is a separate container, not started by the Netprobe.
+		  reporterPort must match TCP_REPORTER_PORT in .env and the tcp reporter port in collection-agent.yml.
+		  Default Geneos reporter port is 9137.
+		-->
+		<collectionAgentParameters>
+			<collectionAgentParameters name="cockroachdb-ca">
+				<unmanaged></unmanaged>
+				<reporterPort>9137</reporterPort>
+				<entityTimeout>7200</entityTimeout>
+				<staleDataTimeout>600</staleDataTimeout>
+			</collectionAgentParameters>
+		</collectionAgentParameters>
+
+	</dynamicEntities>
+
+	<!-- Accept Self-Announcing Netprobes (the Netprobe container connects to this Gateway). -->
+	<selfAnnouncingProbes>
+		<enabled>true</enabled>
+	</selfAnnouncingProbes>
+
+	<operatingEnvironment>
+		<!-- Demo mode requires this exact name. Do not change it. -->
+		<gatewayName>Demo Gateway</gatewayName>
+		<listenPorts>
+			<insecure>
+				<listenPort>7039</listenPort>
+			</insecure>
+		</listenPorts>
+		<selfMonitoring>
+			<disabled>true</disabled>
+		</selfMonitoring>
+		<dataDirectory>/gateway/persist/data</dataDirectory>
+		<insecurePasswordLevel>critical</insecurePasswordLevel>
+	</operatingEnvironment>
+
+</gateway>

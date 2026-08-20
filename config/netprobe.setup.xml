@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+  Self-Announcing Netprobe setup for the insecure CockroachDB lab.
+
+  This file is mounted into the Netprobe container at:
+    /netprobe/persist/setup/netprobe.setup.xml
+
+  What this setup does:
+  - Enables self-announce so the Netprobe connects to the Gateway (not the other way around)
+  - Points at the Gateway container hostname "gateway" on insecure port 7039
+  - Registers probe name cockroachdb-probe
+  - Attaches the Gateway mapping type and unmanaged Collection Agent parameters by name
+-->
+<netprobe compatibility="1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://schema.itrsgroup.com/RA7.11.0-260715/netprobe.xsd">
+
+	<selfAnnounce>
+		<!-- Turn on Self-Announcing Netprobe (SAN). -->
+		<enabled>true</enabled>
+
+		<!-- Retry the Gateway connection every 60 seconds if it drops. -->
+		<retryInterval>60</retryInterval>
+
+		<!-- Reverse connection is not needed on this shared Docker bridge. -->
+		<requireReverseConnection>false</requireReverseConnection>
+
+		<!-- Probe name shown in Active Console. Must be unique on the Gateway. -->
+		<probeName>cockroachdb-probe</probeName>
+
+		<!--
+		  Gateway this Netprobe connects to.
+		  hostname is the Docker container name / DNS name on NETWORK_NAME (geneos-lab).
+		-->
+		<gateways>
+			<gateway>
+				<hostname>gateway</hostname>
+				<port>7039</port>
+				<secure>false</secure>
+			</gateway>
+		</gateways>
+
+		<!--
+		  These names must match gateway.setup.xml:
+		    mappingType name="cockroachdb-mapping-type"
+		    collectionAgentParameters name="cockroachdb-ca"
+		-->
+		<dynamicEntities>
+			<collectionAgentParameters>cockroachdb-ca</collectionAgentParameters>
+			<mappingType>cockroachdb-mapping-type</mappingType>
+		</dynamicEntities>
+	</selfAnnounce>
+
+</netprobe>
