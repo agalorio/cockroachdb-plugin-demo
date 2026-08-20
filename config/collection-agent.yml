@@ -52,8 +52,12 @@ collectors:
 
 # Send metrics, attributes, and events to the tcp reporter.
 # GeneosProcessor shapes datapoints so the CockroachDB V1 mapping can build entities.
+#
+# storeDirectory must be writable by the container user (java). Do not use "."
+# because /app is not writable and startup fails with:
+#   Failed to create directory '/app/./Workflow/Pipeline(attributes)/ingest'
 workflow:
-  storeDirectory: .
+  storeDirectory: /tmp/collection-agent-store
   metrics:
     reporter: tcp
     processors:

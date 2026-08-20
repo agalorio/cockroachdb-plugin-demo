@@ -284,6 +284,7 @@ docker network rm "${NETWORK_NAME}"
 | --- | --- |
 | `docker pull` / `docker run` unauthorized for `docker.itrsgroup.com` | Run `docker login docker.itrsgroup.com` with ITRS website credentials. |
 | Collection Agent exits immediately | `curl` the cluster UUID (step 4). Keep the CA image tag in line with Netprobe 7.11.1 so `/app/plugins` includes CockroachDB. Read `docker logs collection-agent`. |
+| `Failed to create directory '/app/./Workflow/...'` | `/app` is not writable by user `java`. `workflow.storeDirectory` must be `/tmp/collection-agent-store` (already set in `collection-agent.yml`). Recreate the Collection Agent container after changing the YAML. |
 | No dynamic entities in Active Console | Confirm SAN in Netprobe logs, unmanaged reporter `9137`, and built-in mapping **CockroachDB V1** on Gateway 7.11+. |
 | Active Console cannot connect | Gateway published `7039`, Gateway name is still `Demo Gateway`, and you are using the insecure port (not 7038). |
 | `port is already allocated` | Another process is using that host port. Change the left-hand side of `-p` in `.env` / the `docker run` (keep the container-side ports). |
